@@ -783,6 +783,13 @@ func (n *NIC) DeliverNetworkPacket(linkEP LinkEndpoint, remote, local tcpip.Link
 		return
 	}
 
+	// linguohua
+	dst2 := tcpip.Address([]byte{192, 168, 2, 5})
+	if ref := n.getRef(protocol, dst2); ref != nil {
+		handlePacket(protocol, dst, src, linkEP.LinkAddress(), remote, ref, pkt)
+		return
+	}
+
 	// This NIC doesn't care about the packet. Find a NIC that cares about the
 	// packet and forward it to the NIC.
 	//

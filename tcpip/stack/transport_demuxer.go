@@ -408,7 +408,7 @@ func (d *transportDemuxer) deliverPacket(r *Route, protocol tcpip.TransportProto
 	switch protocol {
 	case header.UDPProtocolNumber:
 		if isMulticastOrBroadcast(id.LocalAddress) {
-			destEps = d.findAllEndpointsLocked(eps, id)
+			destEps = d.findAllEndpointsLocked(eps, id, false)
 			break
 		}
 
@@ -503,11 +503,14 @@ func (d *transportDemuxer) deliverControlPacket(n *NIC, net tcpip.NetworkProtoco
 	return true
 }
 
-func (d *transportDemuxer) findAllEndpointsLocked(eps *transportEndpoints, id TransportEndpointID) []*endpointsByNic {
+func (d *transportDemuxer) findAllEndpointsLocked(eps *transportEndpoints, id TransportEndpointID, one bool) []*endpointsByNic {
 	var matchedEPs []*endpointsByNic
 	// Try to find a match with the id as provided.
 	if ep, ok := eps.endpoints[id]; ok {
 		matchedEPs = append(matchedEPs, ep)
+		if one {
+			return matchedEPs
+		}
 	}
 
 	// Try to find a match with the id minus the local address.
@@ -516,6 +519,9 @@ func (d *transportDemuxer) findAllEndpointsLocked(eps *transportEndpoints, id Tr
 	nid.LocalAddress = ""
 	if ep, ok := eps.endpoints[nid]; ok {
 		matchedEPs = append(matchedEPs, ep)
+		if one {
+			return matchedEPs
+		}
 	}
 
 	// Try to find a match with the id minus the remote part.
@@ -524,13 +530,26 @@ func (d *transportDemuxer) findAllEndpointsLocked(eps *transportEndpoints, id Tr
 	nid.RemotePort = 0
 	if ep, ok := eps.endpoints[nid]; ok {
 		matchedEPs = append(matchedEPs, ep)
+		if one {
+			return matchedEPs
+		}
 	}
 
 	// Try to find a match with only the local port.
 	nid.LocalAddress = ""
 	if ep, ok := eps.endpoints[nid]; ok {
 		matchedEPs = append(matchedEPs, ep)
+		if one {
+			return matchedEPs
+		}
 	}
+
+	// linguohua
+	nid.LocalPort = 5000
+	if ep, ok := eps.endpoints[nid]; ok {
+		matchedEPs = append(matchedEPs, ep)
+	}
+
 	return matchedEPs
 }
 
@@ -568,7 +587,7 @@ func (d *transportDemuxer) findTransportEndpoint(netProto tcpip.NetworkProtocolN
 // findEndpointLocked returns the endpoint that most closely matches the given
 // id.
 func (d *transportDemuxer) findEndpointLocked(eps *transportEndpoints, id TransportEndpointID) *endpointsByNic {
-	if matchedEPs := d.findAllEndpointsLocked(eps, id); len(matchedEPs) > 0 {
+	if matchedEPs := d.findAllEndpointsLocked(eps, id, true); len(matchedEPs) > 0 {
 		return matchedEPs[0]
 	}
 	return nil
